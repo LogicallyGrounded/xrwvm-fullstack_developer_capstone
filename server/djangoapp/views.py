@@ -63,7 +63,7 @@ def get_cars(request):
         cars.append({"CarModel": car_model.name, "CarMake": car_model.car_make.name})
     return JsonResponse({"CarModels":cars})
 
-# Update the get_dealerships view to render list of dealerships [cite: 825-832]
+# Update the get_dealerships view to render list of dealerships
 def get_dealerships(request, state="All"):
     if(state == "All"):
         endpoint = "/fetchDealers"
@@ -72,19 +72,7 @@ def get_dealerships(request, state="All"):
     dealerships = get_request(endpoint)
     return JsonResponse({"status": 200, "dealers": dealerships})
 
-# Implement get_dealer_reviews to fetch reviews and their sentiments [cite: 839-843]
-def get_dealer_reviews(request, dealer_id):
-    if(dealer_id):
-        endpoint = "/fetchReviews/dealer/" + str(dealer_id)
-        reviews = get_request(endpoint)
-        if reviews:
-            for review_detail in reviews:
-                response = analyze_review_sentiments(review_detail['review'])
-                review_detail['sentiment'] = response['sentiment']
-            return JsonResponse({"status": 200, "reviews": reviews})
-    return JsonResponse({"status": 400, "message": "Bad Request"})
-
-# Implement get_dealer_details method [cite: 836-838]
+# Implement get_dealer_details method
 def get_dealer_details(request, dealer_id):
     if(dealer_id):
         endpoint = "/fetchDealer/" + str(dealer_id)
@@ -92,7 +80,28 @@ def get_dealer_details(request, dealer_id):
         return JsonResponse({"status": 200, "dealer": dealership})
     return JsonResponse({"status": 400, "message": "Bad Request"})
 
-# Handle review post request [cite: 856-872]
+# IMPROVED: Implement get_dealer_reviews to fetch reviews and handle empty lists/analyzer errors
+def get_dealer_reviews(request, dealer_id):
+    if(dealer_id):
+        endpoint = "/fetchReviews/dealer/" + str(dealer_id)
+        reviews = get_request(endpoint)
+        
+        # If the backend returns reviews (even an empty list [])
+        if reviews is not None:
+            for review_detail in reviews:
+                try:
+                    # Attempt to get sentiment from the microservice
+                    response = analyze_review_sentiments(review_detail['review'])
+                    review_detail['sentiment'] = response['sentiment']
+                except:
+                    # Fallback if Sentiment Analyzer is down or text is invalid
+                    review_detail['sentiment'] = "neutral"
+            
+            return JsonResponse({"status": 200, "reviews": reviews})
+            
+    return JsonResponse({"status": 400, "message": "Bad Request"})
+
+# Handle review post request
 @csrf_exempt
 def add_review(request):
     if not request.user.is_anonymous:
